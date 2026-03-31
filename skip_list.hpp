@@ -6,14 +6,16 @@
 #include <ctime>
 #include <climits>
 #include <random>
+#include <optional>
 
 template<typename T>
 class SkipList {
 private:
     struct Node {
-        T value;
+        std::optional<T> value;
         std::vector<Node*> next;
         Node(int level, const T& val): value(val), next(level, nullptr) {}
+        explicit Node(int level): value(std::nullopt), next(level, nullptr) {}
     };
 
     static constexpr int MAX_LEVEL = 32;
@@ -30,7 +32,7 @@ private:
     }
 
 public:
-    SkipList(): p(0.5), level(1), head(new Node(MAX_LEVEL, T())), rng(std::random_device{}()), dist(0.0, 1.0) {}
+    SkipList(): p(0.5), level(1), head(new Node(MAX_LEVEL)), rng(std::random_device{}()), dist(0.0, 1.0) {}
 
     ~SkipList() {
         Node* cur = head->next[0];
@@ -46,12 +48,12 @@ public:
         std::vector<Node*> update(MAX_LEVEL, nullptr);
         Node* cur = head;
         for (int i = level - 1; i >= 0; --i) {
-            while (cur->next[i] && cur->next[i]->value < item) cur = cur->next[i];
+            while (cur->next[i] && cur->next[i]->next.size() > 0 && cur->next[i]->value && *(cur->next[i]->value) < item) cur = cur->next[i];
             update[i] = cur;
         }
 
         cur = cur->next[0];
-        if (cur && !(item < cur->value) && !(cur->value < item)) return; // already exists
+        if (cur && cur->value && !(item < *(cur->value)) && !(*(cur->value) < item)) return; // already exists
 
         int rl = randomLevel();
         if (rl > level) {
@@ -68,21 +70,21 @@ public:
     bool search(const T & item) {
         Node* cur = head;
         for (int i = level - 1; i >= 0; --i) {
-            while (cur->next[i] && cur->next[i]->value < item) cur = cur->next[i];
+            while (cur->next[i] && cur->next[i]->value && *(cur->next[i]->value) < item) cur = cur->next[i];
         }
         cur = cur->next[0];
-        return cur && !(item < cur->value) && !(cur->value < item);
+        return cur && cur->value && !(item < *(cur->value)) && !(*(cur->value) < item);
     }
 
     void deleteItem(const T & item) {
         std::vector<Node*> update(MAX_LEVEL, nullptr);
         Node* cur = head;
         for (int i = level - 1; i >= 0; --i) {
-            while (cur->next[i] && cur->next[i]->value < item) cur = cur->next[i];
+            while (cur->next[i] && cur->next[i]->value && *(cur->next[i]->value) < item) cur = cur->next[i];
             update[i] = cur;
         }
         cur = cur->next[0];
-        if (!cur || (item < cur->value) || (cur->value < item)) return;
+        if (!cur || !cur->value || (item < *(cur->value)) || (*(cur->value) < item)) return;
         int nodeLevel = (int)cur->next.size();
         for (int i = 0; i < nodeLevel; ++i) {
             if (update[i]->next[i] == cur) update[i]->next[i] = cur->next[i];
@@ -93,4 +95,3 @@ public:
 };
 
 #endif
-
